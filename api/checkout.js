@@ -6,10 +6,12 @@ export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
     if (req.method === 'OPTIONS') return res.status(200).end();
-    if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
 
     try {
-        const { items, price } = JSON.parse(req.body);
+        // 解析 Body，並加上防錯機制
+        const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+        const { items, price } = body;
+
         const options = {
             OperationMode: 'Test',
             MerchantID: '2000132',
@@ -17,23 +19,23 @@ export default async function handler(req, res) {
             HashIV: 'v77hoKGq4kWxJtNp',
         };
 
-        const create = new ecpay_aio_nodejs(options);
+        // 核心修正：強制轉換為台灣時間格式 (YYYY/MM/DD HH:mm:ss)
         const now = new Date();
-        const formattedDate = now.getFullYear() + '/' + 
-            ('0' + (now.getMonth() + 1)).slice(-2) + '/' + 
-            ('0' + now.getDate()).slice(-2) + ' ' + 
-            ('0' + now.getHours()).slice(-2) + ':' + 
-            ('0' + now.getMinutes()).slice(-2) + ':' + 
-            ('0' + now.getSeconds()).slice(-2);
+        const tpeTime = new Date(now.getTime() + (8 * 60 * 60 * 1000)); // 轉 TPE 時區
+        const formattedDate = tpeTime.toISOString()
+            .replace(/T/, ' ')
+            .replace(/\..+/, '')
+            .replace(/-/g, '/');
 
+        const create = new ecpay_aio_nodejs(options);
         const base_param = {
-            MerchantTradeNo: 'DBL' + Date.now(), 
-            MerchantTradeDate: formattedDate,
-            TotalAmount: price.toString(),
-            TradeDesc: 'Framer電商測試',
-            ItemName: items,
+            MerchantTradeNo: 'DBL' + Date.now(),
+            MerchantTradeDate: formattedDate, 
+            TotalAmount: (price || 1000).toString(),
+            TradeDesc: 'Framer Test',
+            ItemName: items || '測試商品',
             ReturnURL: 'https://webhook.site/test',
-            OrderResultURL: 'https://designbylee.tw/', 
+            OrderResultURL: 'https://designbylee.tw/',
             ChoosePayment: 'ALL',
             EncryptType: '1',
         };
@@ -41,6 +43,7 @@ export default async function handler(req, res) {
         const html = create.payment_client.aio_check_out_all(base_param);
         res.status(200).json({ html });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error(err);
+        res.status(500).json({ error: err.message, stack: err.stack });
     }
 }
