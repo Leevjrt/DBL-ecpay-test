@@ -10,20 +10,18 @@ export default async function handler(req, res) {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
         const { items, price } = body;
 
-        const MerchantID = '2000132';
         const HashKey = '5294y06JbISpM5x9';
         const HashIV = 'v77hoKGq4kWxJtNp';
 
-        // 1. 嚴格的時間格式 YYYY/MM/DD HH:mm:ss
         const now = new Date(new Date().getTime() + 8 * 60 * 60 * 1000);
         const formattedDate = now.toISOString().replace(/T/, ' ').replace(/\..+/, '').replace(/-/g, '/');
 
-        // 2. 準備參數 (順序必須按字母排序)
+        // 1. 準備參數並嚴格排序
         const params = {
             ChoosePayment: 'ALL',
             EncryptType: '1',
-            ItemName: items || '測試商品',
-            MerchantID,
+            ItemName: items || 'TestItem',
+            MerchantID: '2000132',
             MerchantTradeDate: formattedDate,
             MerchantTradeNo: 'DBL' + Date.now(),
             OrderResultURL: 'https://designbylee.tw/',
@@ -33,11 +31,12 @@ export default async function handler(req, res) {
             TradeDesc: 'FramerTest'
         };
 
-        // 3. 產生 CheckMacValue
+        // 2. 組合原始字串
         const sortedKeys = Object.keys(params).sort();
         let rawString = `HashKey=${HashKey}&` + sortedKeys.map(key => `${key}=${params[key]}`).join('&') + `&HashIV=${HashIV}`;
-        
-        // 綠界專用的 URL Encode 規則 (非常重要)
+
+        // 3. 綠界專用編碼規則：這是最關鍵的一步
+        // 必須精準轉換符號並轉小寫
         rawString = encodeURIComponent(rawString).toLowerCase()
             .replace(/%20/g, '+')
             .replace(/%2d/g, '-')
@@ -47,14 +46,15 @@ export default async function handler(req, res) {
             .replace(/%2a/g, '*')
             .replace(/%28/g, '(')
             .replace(/%29/g, ')');
-        
+
         const checkMacValue = crypto.createHash('sha256').update(rawString).digest('hex').toUpperCase();
 
-        // 4. 回傳表單
+        // 4. 回傳自動提交表單
         const html = `
             <form id="_ecpay_form" method="post" action="https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5">
                 ${Object.keys(params).map(key => `<input type="hidden" name="${key}" value="${params[key]}" />`).join('')}
                 <input type="hidden" name="CheckMacValue" value="${checkMacValue}" />
+                <script>document.getElementById("_ecpay_form").submit();</script>
             </form>
         `;
 
