@@ -1,55 +1,63 @@
-const ecpay_aio_nodejs = require('ecpay_aio_nodejs');
+const crypto = require('crypto');
 
 export default async function handler(req, res) {
-    // 解決 CORS 與預檢請求
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
     if (req.method === 'OPTIONS') return res.status(200).end();
 
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
         const { items, price } = body;
 
-        // 核心修正：加入 MercProfile 設定，這是目前 500 錯誤的主因
-        const options = {
-            OperationMode: 'Test',
-            MerchantID: '2000132',
-            HashKey: '5294y06JbISpM5x9',
-            HashIV: 'v77hoKGq4kWxJtNp',
-            MercProfile: {
-                MerchantID: '2000132',
-                HashKey: '5294y06JbISpM5x9',
-                HashIV: 'v77hoKGq4kWxJtNp',
-            }
-        };
+        // 綠界測試參數
+        const MerchantID = '2000132';
+        const HashKey = '5294y06JbISpM5x9';
+        const HashIV = 'v77hoKGq4kWxJtNp';
 
-        // 修正時間格式：確保符合綠界 YYYY/MM/DD HH:mm:ss 規範
-        const now = new Date();
-        const tpeDate = new Date(now.getTime() + (8 * 60 * 60 * 1000)); // 轉台灣時區
-        const formattedDate = tpeDate.toISOString()
-            .replace(/T/, ' ')
-            .replace(/\..+/, '')
-            .replace(/-/g, '/');
+        // 格式化時間 YYYY/MM/DD HH:mm:ss
+        const now = new Date(new Date().getTime() + 8 * 60 * 60 * 1000);
+        const formattedDate = now.toISOString().replace(/T/, ' ').replace(/\..+/, '').replace(/-/g, '/');
 
-        const create = new ecpay_aio_nodejs(options);
-        const base_param = {
+        // 1. 準備原始參數
+        const params = {
+            MerchantID,
             MerchantTradeNo: 'DBL' + Date.now(),
             MerchantTradeDate: formattedDate,
+            PaymentType: 'aio',
             TotalAmount: (price || 1000).toString(),
-            TradeDesc: 'DesignByLee_Test',
+            TradeDesc: 'FramerTest',
             ItemName: items || '測試商品',
             ReturnURL: 'https://webhook.site/test',
-            OrderResultURL: 'https://designbylee.tw/',
             ChoosePayment: 'ALL',
             EncryptType: '1',
+            OrderResultURL: 'https://designbylee.tw/'
         };
 
-        const html = create.payment_client.aio_check_out_all(base_param);
+        // 2. 計算 CheckMacValue (綠界加密流程)
+        const sortedKeys = Object.keys(params).sort();
+        let rawString = `HashKey=${HashKey}&` + sortedKeys.map(key => `${key}=${params[key]}`).join('&') + `&HashIV=${HashIV}`;
+        rawString = encodeURIComponent(rawString).toLowerCase()
+            .replace(/%2d/g, '-')
+            .replace(/%5f/g, '_')
+            .replace(/%2e/g, '.')
+            .replace(/%21/g, '!')
+            .replace(/%2a/g, '*')
+            .replace(/%28/g, '(')
+            .replace(/%29/g, ')');
+        
+        const checkMacValue = crypto.createHash('sha256').update(rawString).digest('hex').toUpperCase();
+
+        // 3. 產生自動提交表單
+        const html = `
+            <form id="_ecpay_form" method="post" action="https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5">
+                ${Object.keys(params).map(key => `<input type="hidden" name="${key}" value="${params[key]}" />`).join('')}
+                <input type="hidden" name="CheckMacValue" value="${checkMacValue}" />
+            </form>
+        `;
+
         res.status(200).json({ html });
     } catch (err) {
-        console.error("Backend Error:", err.message);
         res.status(500).json({ error: err.message });
     }
 }
