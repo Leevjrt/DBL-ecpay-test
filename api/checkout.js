@@ -12,7 +12,7 @@ export default async function handler(req, res) {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
         const { items, price } = body;
 
-        // 核心修正：加入 MercProfile 設定以符合 SDK 新版規範
+        // 核心修正：加入 MercProfile 設定，這是目前 500 錯誤的主因
         const options = {
             OperationMode: 'Test',
             MerchantID: '2000132',
