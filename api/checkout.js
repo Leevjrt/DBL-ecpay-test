@@ -12,7 +12,7 @@ export default async function handler(req, res) {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
         const { items, price } = body;
 
-        // 核心修正：加入 MercProfile 設定
+        // 核心修正：加入 MercProfile 設定以符合 SDK 新版規範
         const options = {
             OperationMode: 'Test',
             MerchantID: '2000132',
@@ -27,7 +27,7 @@ export default async function handler(req, res) {
 
         // 修正時間格式：確保符合綠界 YYYY/MM/DD HH:mm:ss 規範
         const now = new Date();
-        const tpeDate = new Date(now.getTime() + (8 * 60 * 60 * 1000));
+        const tpeDate = new Date(now.getTime() + (8 * 60 * 60 * 1000)); // 轉台灣時區
         const formattedDate = tpeDate.toISOString()
             .replace(/T/, ' ')
             .replace(/\..+/, '')
