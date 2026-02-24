@@ -1,11 +1,15 @@
 const crypto = require('crypto');
 
 export default async function handler(req, res) {
+    // 1. 強制開啟所有 CORS 權限
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    console.log("Debug RawString:", rawString);
-    if (req.method === 'OPTIONS') return res.status(200).end();
+
+    // 2. 處理瀏覽器的預檢請求 (Preflight)
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
 
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
@@ -14,14 +18,15 @@ export default async function handler(req, res) {
         const HashKey = '5294y06JbISpM5x9';
         const HashIV = 'v77hoKGq4kWxJtNp';
 
+        // 台灣時間 YYYY/MM/DD HH:mm:ss
         const now = new Date(new Date().getTime() + 8 * 60 * 60 * 1000);
         const formattedDate = now.toISOString().replace(/T/, ' ').replace(/\..+/, '').replace(/-/g, '/');
 
-        // 1. 準備參數並嚴格排序
+        // 準備參數 (字母 A-Z 排序)
         const params = {
             ChoosePayment: 'ALL',
             EncryptType: '1',
-            ItemName: items || 'TestItem',
+            ItemName: (items || 'TestItem').replace(/#/g, ' '), // 移除可能干擾加密的符號
             MerchantID: '2000132',
             MerchantTradeDate: formattedDate,
             MerchantTradeNo: 'DBL' + Date.now(),
@@ -32,12 +37,10 @@ export default async function handler(req, res) {
             TradeDesc: 'FramerTest'
         };
 
-        // 2. 組合原始字串
+        // 3. 計算 CheckMacValue (手動編碼確保不噴錯)
         const sortedKeys = Object.keys(params).sort();
         let rawString = `HashKey=${HashKey}&` + sortedKeys.map(key => `${key}=${params[key]}`).join('&') + `&HashIV=${HashIV}`;
 
-        // 3. 綠界專用編碼規則：這是最關鍵的一步
-        // 必須精準轉換符號並轉小寫
         rawString = encodeURIComponent(rawString).toLowerCase()
             .replace(/%20/g, '+')
             .replace(/%2d/g, '-')
@@ -50,7 +53,7 @@ export default async function handler(req, res) {
 
         const checkMacValue = crypto.createHash('sha256').update(rawString).digest('hex').toUpperCase();
 
-        // 4. 回傳自動提交表單
+        // 4. 回傳自動跳轉表單
         const html = `
             <form id="_ecpay_form" method="post" action="https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5">
                 ${Object.keys(params).map(key => `<input type="hidden" name="${key}" value="${params[key]}" />`).join('')}
