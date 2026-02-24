@@ -6,7 +6,7 @@ export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-    // 2. 處理瀏覽器的預檢請求 (Preflight)
+    // 2. 處理瀏覽器的預檢請求
     if (req.method === 'OPTIONS') {
         return res.status(200).end();
     }
@@ -22,11 +22,11 @@ export default async function handler(req, res) {
         const now = new Date(new Date().getTime() + 8 * 60 * 60 * 1000);
         const formattedDate = now.toISOString().replace(/T/, ' ').replace(/\..+/, '').replace(/-/g, '/');
 
-        // 準備參數 (字母 A-Z 排序)
+        // 準備參數 (按字母 A-Z 排序)
         const params = {
             ChoosePayment: 'ALL',
             EncryptType: '1',
-            ItemName: (items || 'TestItem').replace(/#/g, ' '), // 移除可能干擾加密的符號
+            ItemName: (items || 'TestItem').substring(0, 20), // 限制長度，避免特殊字元
             MerchantID: '2000132',
             MerchantTradeDate: formattedDate,
             MerchantTradeNo: 'DBL' + Date.now(),
@@ -37,10 +37,13 @@ export default async function handler(req, res) {
             TradeDesc: 'FramerTest'
         };
 
-        // 3. 計算 CheckMacValue (手動編碼確保不噴錯)
+        // 3. 計算 CheckMacValue (關鍵步驟)
         const sortedKeys = Object.keys(params).sort();
+        
+        // 先宣告變數，再賦值，避免 ReferenceError
         let rawString = `HashKey=${HashKey}&` + sortedKeys.map(key => `${key}=${params[key]}`).join('&') + `&HashIV=${HashIV}`;
 
+        // 綠界專用 URL Encode 規範
         rawString = encodeURIComponent(rawString).toLowerCase()
             .replace(/%20/g, '+')
             .replace(/%2d/g, '-')
@@ -64,6 +67,7 @@ export default async function handler(req, res) {
 
         res.status(200).json({ html });
     } catch (err) {
+        console.error("Final Debug Error:", err.message);
         res.status(500).json({ error: err.message });
     }
 }
