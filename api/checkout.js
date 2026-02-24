@@ -1,7 +1,7 @@
 const ecpay_aio_nodejs = require('ecpay_aio_nodejs');
 
 export default async function handler(req, res) {
-    // 解決 CORS
+    // 解決 CORS 與預檢請求
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -12,7 +12,7 @@ export default async function handler(req, res) {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
         const { items, price } = body;
 
-        // 核心修正：補上 MercProfile 以符合套件新版規範
+        // 核心修正：加入 MercProfile 設定
         const options = {
             OperationMode: 'Test',
             MerchantID: '2000132',
@@ -25,7 +25,7 @@ export default async function handler(req, res) {
             }
         };
 
-        // 精準台灣時間格式 (YYYY/MM/DD HH:mm:ss)
+        // 修正時間格式：確保符合綠界 YYYY/MM/DD HH:mm:ss 規範
         const now = new Date();
         const tpeDate = new Date(now.getTime() + (8 * 60 * 60 * 1000));
         const formattedDate = tpeDate.toISOString()
@@ -38,7 +38,7 @@ export default async function handler(req, res) {
             MerchantTradeNo: 'DBL' + Date.now(),
             MerchantTradeDate: formattedDate,
             TotalAmount: (price || 1000).toString(),
-            TradeDesc: 'Framer電商測試',
+            TradeDesc: 'DesignByLee_Test',
             ItemName: items || '測試商品',
             ReturnURL: 'https://webhook.site/test',
             OrderResultURL: 'https://designbylee.tw/',
@@ -49,7 +49,7 @@ export default async function handler(req, res) {
         const html = create.payment_client.aio_check_out_all(base_param);
         res.status(200).json({ html });
     } catch (err) {
-        console.error("結帳發生錯誤:", err.message);
+        console.error("Backend Error:", err.message);
         res.status(500).json({ error: err.message });
     }
 }
