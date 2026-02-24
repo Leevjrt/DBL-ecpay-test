@@ -14,7 +14,7 @@ export default async function handler(req, res) {
         const HashKey = '5294y06JbISpM5x9';
         const HashIV = 'v77hoKGq4kWxJtNp';
 
-        // 1. 嚴格的時間格式
+        // 1. 嚴格的時間格式 YYYY/MM/DD HH:mm:ss
         const now = new Date(new Date().getTime() + 8 * 60 * 60 * 1000);
         const formattedDate = now.toISOString().replace(/T/, ' ').replace(/\..+/, '').replace(/-/g, '/');
 
