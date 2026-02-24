@@ -1,7 +1,5 @@
 {
   "name": "dbl-ecpay-api",
   "version": "1.0.0",
-  "dependencies": {
-    "ecpay_aio_nodejs": "^1.0.1"
-  }
+  "dependencies": {}
 }
