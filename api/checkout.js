@@ -10,34 +10,36 @@ export default async function handler(req, res) {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
         const { items, price } = body;
 
-        // 綠界測試參數
         const MerchantID = '2000132';
         const HashKey = '5294y06JbISpM5x9';
         const HashIV = 'v77hoKGq4kWxJtNp';
 
-        // 格式化時間 YYYY/MM/DD HH:mm:ss
+        // 1. 嚴格的時間格式
         const now = new Date(new Date().getTime() + 8 * 60 * 60 * 1000);
         const formattedDate = now.toISOString().replace(/T/, ' ').replace(/\..+/, '').replace(/-/g, '/');
 
-        // 1. 準備原始參數
+        // 2. 準備參數 (順序必須按字母排序)
         const params = {
-            MerchantID,
-            MerchantTradeNo: 'DBL' + Date.now(),
-            MerchantTradeDate: formattedDate,
-            PaymentType: 'aio',
-            TotalAmount: (price || 1000).toString(),
-            TradeDesc: 'FramerTest',
-            ItemName: items || '測試商品',
-            ReturnURL: 'https://webhook.site/test',
             ChoosePayment: 'ALL',
             EncryptType: '1',
-            OrderResultURL: 'https://designbylee.tw/'
+            ItemName: items || '測試商品',
+            MerchantID,
+            MerchantTradeDate: formattedDate,
+            MerchantTradeNo: 'DBL' + Date.now(),
+            OrderResultURL: 'https://designbylee.tw/',
+            PaymentType: 'aio',
+            ReturnURL: 'https://webhook.site/test',
+            TotalAmount: (price || 1000).toString(),
+            TradeDesc: 'FramerTest'
         };
 
-        // 2. 計算 CheckMacValue (綠界加密流程)
+        // 3. 產生 CheckMacValue
         const sortedKeys = Object.keys(params).sort();
         let rawString = `HashKey=${HashKey}&` + sortedKeys.map(key => `${key}=${params[key]}`).join('&') + `&HashIV=${HashIV}`;
+        
+        // 綠界專用的 URL Encode 規則 (非常重要)
         rawString = encodeURIComponent(rawString).toLowerCase()
+            .replace(/%20/g, '+')
             .replace(/%2d/g, '-')
             .replace(/%5f/g, '_')
             .replace(/%2e/g, '.')
@@ -48,7 +50,7 @@ export default async function handler(req, res) {
         
         const checkMacValue = crypto.createHash('sha256').update(rawString).digest('hex').toUpperCase();
 
-        // 3. 產生自動提交表單
+        // 4. 回傳表單
         const html = `
             <form id="_ecpay_form" method="post" action="https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5">
                 ${Object.keys(params).map(key => `<input type="hidden" name="${key}" value="${params[key]}" />`).join('')}
